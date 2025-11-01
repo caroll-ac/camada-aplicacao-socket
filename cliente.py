@@ -1,6 +1,5 @@
 from socket import *
-
-serverName = '192.168.1.21' # IP da rede local
+serverName = '127.0.0.1' # IP da rede local
 serverPort = 6000
 
 print('=' * 60)
