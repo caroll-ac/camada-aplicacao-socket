@@ -102,23 +102,36 @@ python servidor.py
 
 O cliente estabelece a conexão com o IP do servidor na porta `6000`.
 
-#### Configuração de Acesso (Importante\!)
+#### Configuração de Acesso (Importante!)
 
-Antes de executar, você deve configurar a variável `serverName` no arquivo `cliente.py`:
+Agora o `cliente.py` carrega automaticamente um arquivo `.env` (se existir) para encapsular o IP/porta do servidor.
 
-```python
-# cliente.py
+1. Crie um arquivo `.env` na raiz do projeto:
 
-# Mude este IP para o endereço IP local (LAN) do computador que está rodando o servidor.
-serverName = '192.168.1.21' 
-serverPort = 6000
+```
+SERVER
+PORT
 ```
 
-**Comando:**
+2. O cliente usa os valores em `.env` por padrão. Você também pode sobrescrever via argumentos de linha de comando:
 
-```bash
+- Usar `.env` (ou padrão 127.0.0.1 se `.env` não existir):
+
+```powershell
 python cliente.py
 ```
+
+- Fornecer o IP do servidor na CLI (posicional) e/ou porta com `--port`:
+
+```powershell
+python cliente.py 192.168.100.113
+python cliente.py 192.168.100.113 --port 6000
+python cliente.py --port 6000
+```
+
+Se o `.env` não estiver presente e você não passar argumentos, o cliente usará `127.0.0.1:6000`.
+
+> Observação: o `.env` foi adicionado ao `.gitignore` por padrão para evitar comitar informações sensíveis acidentalmente.
 
 ## 💬 Protocolo de Comunicação
 

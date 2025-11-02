@@ -1,4 +1,5 @@
 import argparse
+import os
 from socket import socket, AF_INET, SOCK_STREAM
 import sys
 
@@ -38,11 +39,32 @@ def build_message(from_curr: str, to_curr: str, amount: float) -> str:
 
 
 def main():
+    # Carrega variáveis do arquivo .env (se existir) para encapsular o IP/PORT
+    def load_dotenv(path='.env'):
+        try:
+            if not os.path.exists(path):
+                return
+            with open(path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        k, v = line.split('=', 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and v and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+    load_dotenv()
+
     parser = argparse.ArgumentParser(description='Cliente conversor de moedas')
-    parser.add_argument('server', nargs='?', default='127.0.0.1',
-                        help='IP do servidor (padrão: 127.0.0.1)')
-    parser.add_argument('--port', '-p', type=int, default=6000,
-                        help='Porta do servidor (padrão: 6000)')
+    parser.add_argument('server', nargs='?', default=os.environ.get('SERVER', '127.0.0.1'),
+                        help='IP do servidor (padrão: 127.0.0.1 ou definido em .env)')
+    parser.add_argument('--port', '-p', type=int, default=int(os.environ.get('PORT', '6000')),
+                        help='Porta do servidor (padrão: 6000 ou definido em .env)')
 
     args = parser.parse_args()
 
