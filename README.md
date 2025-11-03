@@ -17,6 +17,53 @@ Para executar o servidor e o cliente, você precisa ter o Python instalado e as 
 pip install requests
 ```
 
+### Criar e ativar um ambiente virtual (recomendado)
+
+É altamente recomendado criar um ambiente virtual para isolar as dependências do projeto.
+
+No Windows (PowerShell), execute na pasta do projeto:
+
+```powershell
+# cria o venv (gera a pasta .venv)
+python -m venv .venv
+
+# ativa o venv no PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# se houver bloqueio por política de execução, permita apenas para a sessão atual:
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+.\.venv\Scripts\Activate.ps1
+```
+
+Com o venv ativo, instale as dependências:
+
+```powershell
+pip install --upgrade pip
+pip install requests
+```
+
+Ativação em outros shells:
+
+- cmd.exe:
+
+```cmd
+\.venv\Scripts\activate.bat
+```
+
+- Git Bash / MSYS:
+
+```bash
+source .venv/Scripts/activate
+```
+
+Para desativar o ambiente virtual:
+
+```powershell
+deactivate
+```
+
+Observação: criar/ativar o venv é local à máquina onde você o cria — ative o venv no cliente e no servidor separadamente quando for rodar em máquinas diferentes.
+
 ## 🚀 Como Executar
 
 O projeto é dividido em duas partes: o Servidor (`servidor.py`) e o Cliente (`cliente.py`). Eles devem ser executados em terminais separados e, idealmente, em máquinas diferentes na mesma rede para testar a comunicação.

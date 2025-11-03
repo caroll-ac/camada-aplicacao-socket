@@ -2,6 +2,7 @@ from socket import *
 import requests
 import json
 import threading
+import struct
 from datetime import datetime, timedelta
 
 serverPort = 6000
@@ -119,8 +120,22 @@ def get_fallback_rates():
         'CLP': 890.00
     }
 
+# Parseia mensagem binária (10 bytes):
+# - 3 bytes: moeda origem (ASCII)
+# - 3 bytes: moeda destino (ASCII)
+# - 4 bytes: valor (float IEEE 754, big-endian)
+def parse_binary_message(data: bytes) -> tuple:
+    if len(data) != 10:
+        raise ValueError(f"Tamanho inválido: esperado 10 bytes, recebido {len(data)}")
+    
+    from_curr = data[0:3].decode('ascii').upper()
+    to_curr = data[3:6].decode('ascii').upper()
+    amount = struct.unpack('>f', data[6:10])[0]
+    
+    return from_curr, to_curr, amount
+
 # Processa a mensagem de conversão recebida do cliente
-# Espera o formato <moeda_origem>|<moeda_destino>|<valor>
+# Espera o formato binário de 10 bytes
 # Retorna a resposta no formato:
 # SUCESSO|<moeda_origem>|<moeda_destino>|<valor>|<resultado>|<taxa>|<data_atualizacao>|<fonte>
 # Ou
@@ -128,25 +143,20 @@ def get_fallback_rates():
 def convert_currency(message):
 
     try:
-        parts = message.split('|')
-        
-        if len(parts) != 3:
-            return "ERRO: Formato inválido. Use: FROM|TO|AMOUNT"
-        
-        from_curr = parts[0].strip().upper()
-        to_curr = parts[1].strip().upper()
-        amount = float(parts[2].strip())
+        from_curr, to_curr, amount = parse_binary_message(message)
         
         rates, last_update = get_exchange_rates()
         
         if from_curr not in rates:
-            return f"ERRO: Moeda {from_curr} não suportada"
+            error_msg = f"ERRO: Moeda {from_curr} não suportada"
+            return error_msg.encode()
         
         if to_curr not in rates:
-            return f"ERRO: Moeda {to_curr} não suportada"
+            error_msg = f"ERRO: Moeda {to_curr} não suportada"
+            return error_msg.encode()
         
         if amount <= 0:
-            return "ERRO: Valor deve ser maior que zero"
+            return "ERRO: Valor deve ser maior que zero".encode()
         
         usd_amount = amount / rates[from_curr]
         result = usd_amount * rates[to_curr]
@@ -156,13 +166,16 @@ def convert_currency(message):
         
         source = "BCB+API" if (to_curr == 'BRL' or from_curr == 'BRL') else "API"
         
-        response = f"SUCESSO|{from_curr}|{to_curr}|{amount:.2f}|{result:.2f}|{rate:.6f}|{update_time}|{source}"
+        # Resposta binária (8 bytes): resultado (4 bytes) + taxa (4 bytes)
+        response = struct.pack('>ff', result, rate)
         return response
         
-    except ValueError:
-        return "ERRO: Valor inválido"
+    except ValueError as e:
+        error_msg = f"ERRO: Formato inválido - {str(e)}"
+        return error_msg.encode()
     except Exception as e:
-        return f"ERRO: {str(e)}"
+        error_msg = f"ERRO: {str(e)}"
+        return error_msg.encode()
 
 # Função que trata cada cliente em uma thread separada
 # Permite múltiplas conexões simultâneas
@@ -180,18 +193,24 @@ def handle_client(connectionSocket, addr, client_id):
     print(f'[INFO] Clientes ativos: {active_clients}')
     
     try:
-        message = connectionSocket.recv(1024).decode()
+        # Recebe exatamente 10 bytes (formato binário)
+        message = connectionSocket.recv(10)
         
         if not message:
             print(f'[AVISO] Cliente #{client_id} enviou mensagem vazia')
             return
         
-        print(f'[RECEBIDO] Cliente #{client_id}: {message}')
+        print(f'[RECEBIDO] Cliente #{client_id}: {len(message)} bytes (binário)')
         
         response = convert_currency(message)
-        print(f'[ENVIANDO] Cliente #{client_id}: {response.split("|")[0]}')
         
-        connectionSocket.send(response.encode())
+        # Verifica se é resposta binária (8 bytes) ou erro (texto)
+        if len(response) == 8:
+            print(f'[ENVIANDO] Cliente #{client_id}: SUCESSO (8 bytes binários)')
+        else:
+            print(f'[ENVIANDO] Cliente #{client_id}: ERRO')
+        
+        connectionSocket.send(response)
         
     except Exception as e:
         print(f'[ERRO] Cliente #{client_id}: {e}')
@@ -216,10 +235,11 @@ serverSocket.bind(('', serverPort))
 serverSocket.listen(10)  # Até 10 conexões na fila
 
 print('=' * 70)
-print('💱 SERVIDOR CONVERSOR - MULTI-THREAD (BCB + API)')
+print('💱 SERVIDOR CONVERSOR - MULTI-THREAD (BCB + API) - FORMATO BINÁRIO')
 print('=' * 70)
 print(f'📡 Porta: {serverPort}')
 print(f'🔧 Modo: Multi-thread (suporta múltiplos clientes)')
+print(f'📦 Protocolo: 3 bytes origem + 3 bytes destino + 4 bytes float')
 print('⏳ Carregando taxas iniciais...')
 
 initial_rates, _ = get_exchange_rates()
